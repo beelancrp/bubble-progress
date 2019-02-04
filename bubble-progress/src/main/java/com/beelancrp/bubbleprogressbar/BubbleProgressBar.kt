@@ -3,54 +3,67 @@ package com.beelancrp.bubbleprogressbar
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
-import android.support.graphics.drawable.ArgbEvaluator
-import android.support.v4.content.res.ResourcesCompat
-import android.support.v4.view.ViewPager
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
+import android.view.ViewGroup
+import androidx.core.content.res.ResourcesCompat
+import androidx.vectordrawable.graphics.drawable.ArgbEvaluator
+import androidx.viewpager.widget.ViewPager
 
-class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : View(context, attrs, defStyleAttr) {
+class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: Int) :
+    View(context, attrs, defStyleAttr) {
 
     var bubbleCount = 1
-    var bubbleSize = 42f
+    var bubbleSize = dp(42f)
+        set(value) {
+            dp(value)
+        }
     var bubbleColor = Color.WHITE
     var bubbleHighlightColor = Color.GRAY
-    var lineWidth = 16f
-    var lineHeight = 4f
+    var lineWidth = dp(16f)
+        set(value) {
+            dp(value)
+        }
+    var lineHeight = dp(4f)
+        set(value) {
+            dp(value)
+        }
     var textStartColor = Color.BLACK
     var textEndColor = Color.WHITE
+    var textSize = 14f
+
+    var pager: ViewPager? = null
 
     private var yFillBg = 0f
     private var isField = false
 
-    private val mBgPaint: Paint by lazy {
+    private val bgPaint: Paint by lazy {
         Paint()
     }
 
-    private val mBubblePaint by lazy {
+    private val bubblePaint by lazy {
         Paint().apply {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
         }
     }
 
-    private val mEmptyBgBitmap: Bitmap by lazy {
+    private val emptyBgBitmap: Bitmap by lazy {
         makeBackgroundBitmap(width, height)
     }
 
-    private val mFillBgBitmap: Bitmap by lazy {
+    private val fillBgBitmap: Bitmap by lazy {
         makeFillBackgroundBitmap(width, height)
     }
 
-    private val mBubbleBitmap: Bitmap by lazy {
+    private val bubbleBitmap: Bitmap by lazy {
         makeBubbleBitmap(bubbleSize, bubbleSize)
     }
 
-    private val mDividerBgBitmap: Bitmap by lazy {
+    private val dividerBgBitmap: Bitmap by lazy {
         makeDividerBitmap(lineWidth, height.toFloat())
     }
-
 
     private val textPaints: ArrayList<TextPaint> by lazy {
         (0..bubbleCount).map {
@@ -58,12 +71,10 @@ class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: In
                 textAlign = Paint.Align.CENTER
                 color = if (it == 0) textEndColor else textStartColor
                 typeface = ResourcesCompat.getFont(context, R.font.roboto_medium)
-                textSize = sp(14f)
+                textSize = sp(textSize)
             }
         } as ArrayList
     }
-
-    private lateinit var pager: ViewPager
 
     constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, 0)
     constructor(context: Context) : this(context, null, 0)
@@ -74,10 +85,13 @@ class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: In
     }
 
     private fun init(attrs: AttributeSet?) {
+        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
         val typedArray = context.obtainStyledAttributes(attrs, R.styleable.BubbleProgressBar)
         bubbleSize = typedArray.getDimension(R.styleable.BubbleProgressBar_bpb_bubble_size, bubbleSize)
         bubbleColor = typedArray.getColor(R.styleable.BubbleProgressBar_bpb_color, bubbleColor)
-        bubbleHighlightColor = typedArray.getColor(R.styleable.BubbleProgressBar_bpb_highlight_color, bubbleHighlightColor)
+        bubbleHighlightColor =
+                typedArray.getColor(R.styleable.BubbleProgressBar_bpb_highlight_color, bubbleHighlightColor)
         lineWidth = typedArray.getDimension(R.styleable.BubbleProgressBar_bpb_line_width, lineWidth)
         lineHeight = typedArray.getDimension(R.styleable.BubbleProgressBar_bpb_line_height, lineHeight)
         textStartColor = typedArray.getColor(R.styleable.BubbleProgressBar_bpb_text_start_color, bubbleColor)
@@ -91,19 +105,21 @@ class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: In
         if (width == 0f) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         } else {
-            super.onMeasure(MeasureSpec.makeMeasureSpec(width.toInt(), MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(bubbleSize.toInt(), MeasureSpec.EXACTLY))
+            super.onMeasure(
+                MeasureSpec.makeMeasureSpec(width.toInt(), MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(bubbleSize.toInt(), MeasureSpec.EXACTLY)
+            )
         }
     }
 
     override fun onDetachedFromWindow() {
         try {
-            mBgPaint.reset()
-            mBubblePaint.reset()
-            mBubbleBitmap.recycle()
-            mEmptyBgBitmap.recycle()
-            mDividerBgBitmap.recycle()
-            mFillBgBitmap.recycle()
+            bgPaint.reset()
+            bubblePaint.reset()
+            bubbleBitmap.recycle()
+            emptyBgBitmap.recycle()
+            dividerBgBitmap.recycle()
+            fillBgBitmap.recycle()
             textPaints.forEach {
                 it.reset()
             }
@@ -117,14 +133,6 @@ class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: In
         this.pager = pager
         pager.addOnPageChangeListener(mPageListener)
         bubbleCount = pager.adapter?.count ?: 0
-        requestLayout()
-    }
-
-    fun setFakeBubble(count: Int) {
-        bubbleCount = count
-        isField = true
-        textPaints.forEach { it.color = textEndColor }
-
         requestLayout()
     }
 
@@ -153,19 +161,19 @@ class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: In
     private fun drawBubble(pos: Int, canvas: Canvas) {
         val x = (pos * (bubbleSize + lineWidth))
         val y = 0f
-        canvas.drawBitmap(mBubbleBitmap, x, y, mBubblePaint)
+        canvas.drawBitmap(bubbleBitmap, x, y, bubblePaint)
         if (pos != bubbleCount - 1) {
             val xD = (pos + 1) * bubbleSize + pos * lineWidth
-            canvas.drawBitmap(mDividerBgBitmap, xD, y, mBubblePaint)
+            canvas.drawBitmap(dividerBgBitmap, xD, y, bubblePaint)
         }
     }
 
     private fun drawFillBg(canvas: Canvas) {
-        canvas.drawBitmap(mFillBgBitmap, yFillBg, 0f, mBgPaint)
+        canvas.drawBitmap(fillBgBitmap, yFillBg, 0f, bgPaint)
     }
 
     private fun drawEmptyBg(canvas: Canvas) {
-        canvas.drawBitmap(mEmptyBgBitmap, 0f, 0f, mBgPaint)
+        canvas.drawBitmap(emptyBgBitmap, 0f, 0f, bgPaint)
     }
 
     private fun drawText(pos: Int, canvas: Canvas) {
@@ -230,16 +238,20 @@ class BubbleProgressBar(context: Context, attrs: AttributeSet?, defStyleAttr: In
     private val mPageListener = object : ViewPager.SimpleOnPageChangeListener() {
         @SuppressLint("RestrictedApi")
         override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
-
             val realPos = position + positionOffset
             yFillBg = -width + bubbleSize + (realPos) * bubbleSize + realPos * lineWidth
-            textPaints[position + 1].color = ArgbEvaluator.getInstance().evaluate(positionOffset, textStartColor, textEndColor) as Int
+            textPaints[position + 1].color =
+                    ArgbEvaluator.getInstance().evaluate(positionOffset, textStartColor, textEndColor) as Int
             invalidate()
         }
     }
 
     private fun sp(sp: Float): Float {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, resources.displayMetrics)
+    }
+
+    private fun dp(dp: Float): Float {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics)
     }
 }
 
